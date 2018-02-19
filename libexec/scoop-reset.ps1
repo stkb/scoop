@@ -43,7 +43,10 @@ $apps | ForEach-Object {
     $version        = $appWithVersion.version;
 
     if(!(installed $app)) {
-        error "'$app' isn't installed"
+        & 'appsetup.ps1'
+        if($lastexitcode -ne 0) {
+            error "'$app' isn't installed"
+        }
         return
     }
 
@@ -76,6 +79,8 @@ $apps | ForEach-Object {
     create_startmenu_shortcuts $manifest $dir $global $architecture
     env_add_path $manifest $dir
     env_set $manifest $dir $global
+
+    & 'appsetup.ps1'
 }
 
 exit 0

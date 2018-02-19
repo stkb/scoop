@@ -116,6 +116,8 @@ $apps | ForEach-Object {
     }
 
     success "'$app' was uninstalled."
+
+    & 'appsetup.ps1' -u
 }
 
 exit 0
