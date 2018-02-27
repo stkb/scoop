@@ -294,7 +294,7 @@ set invalid=`"='
 if !args! == !invalid! ( set args= )
 powershell -noprofile -ex unrestricted `"& '$resolved_path' %args%;exit `$lastexitcode`"" | out-file "$shim.cmd" -encoding ascii
 
-        "#!/bin/sh`npowershell -ex unrestricted `"$resolved_path`" $arg `"$@`"" | out-file $shim -encoding ascii
+        "#!/bin/sh`npowershell -noprofile -ex unrestricted `"$resolved_path`" $arg `"$@`"" | out-file $shim -encoding ascii
     } elseif($path -match '\.jar$') {
         "@java -jar `"$resolved_path`" $arg %*" | out-file "$shim.cmd" -encoding ascii
         "#!/bin/sh`njava -jar `"$resolved_path`" $arg `"$@`"" | out-file $shim -encoding ascii
