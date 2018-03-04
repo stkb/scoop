@@ -44,11 +44,17 @@ function startmenu_shortcut([string] $target, [string] $shortcutName, [string] $
     else {
         $shortcutFile = join-path (shortcut_folder $global) "$shortcutName.lnk"
         ensure (split-path -parent $shortcutFile) > $null
-        
+        $workingDir = split-path -parent $target
+
+        if($target.EndsWith('.jar')) {
+            $arguments = "-jar `"$target`" " + $arguments
+            $target = 'javaw.exe'
+        }
+
         $wsShell = New-Object -ComObject WScript.Shell
         $shortcut = $wsShell.CreateShortcut($shortcutFile)
         $shortcut.TargetPath = $target
-        $shortcut.WorkingDirectory = split-path -parent $target
+        $shortcut.WorkingDirectory = $workingDir
         if($arguments) { $shortcut.Arguments = $arguments }
         if($icon) { $shortcut.IconLocation = $icon }
         $shortcut.Save()
