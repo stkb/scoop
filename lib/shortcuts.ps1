@@ -1,59 +1,58 @@
-# Creates shortcut for the app in the start menu
+# Creates start menu shortcuts defined in the manifest
 function create_startmenu_shortcuts($manifest, $dir, $global, $arch) {
+
     $shortcuts = @(arch_specific 'shortcuts' $manifest $arch)
-    $shortcuts | Where-Object { $_ -ne $null } | ForEach-Object {
-        $target = [System.IO.Path]::Combine($dir, $_.item(0))
-        $target = New-Object System.IO.FileInfo($target)
-        $name = $_.item(1)
-        $arguments = ""
-        $icon = $null
-        if($_.length -ge 3) {
-            $arguments = $_.item(2)
+
+    foreach($shortcutDef in $shortcuts) {
+        $targetLeaf, $name, $arguments, $iconLeaf, $ignore = $shortcutDef
+        $err = & {
+            if(-not $targetLeaf) { "No target given" }
+            elseif(-not $name) { "'$targetLeaf': No name given" }
         }
-        if($_.length -ge 4) {
-            $icon = [System.IO.Path]::Combine($dir, $_.item(3))
-            $icon = New-Object System.IO.FileInfo($icon)
+        if($err) {
+            error "Error in shortcut in manifest: $err"
         }
-        startmenu_shortcut $target $name $arguments $icon $global
+        else {
+            $err = startmenu_shortcut "$dir\$targetLeaf" $name $arguments "$dir\$iconLeaf" $global
+            if($err) {
+                error "Creating shortcut '$name': $err"
+            }
+            else {
+                Write-Output "Created shortcut '$name' ($targetLeaf)"
+            }
+        }
     }
 }
 
 function shortcut_folder($global) {
-    $directory = [System.IO.Path]::Combine([Environment]::GetFolderPath('startmenu'), 'Programs', 'Scoop Apps')
-    if($global) {
-        $directory = [System.IO.Path]::Combine([Environment]::GetFolderPath('commonstartmenu'), 'Programs', 'Scoop Apps')
-    }
+    $envFolder = &{ if($global) { 'commonstartmenu' } else { 'startmenu' } }
+    $directory = join-path ([Environment]::GetFolderPath($envFolder)) 'Programs\Scoop Apps'
+
     return $(ensure $directory)
 }
 
-function startmenu_shortcut([System.IO.FileInfo] $target, $shortcutName, $arguments, [System.IO.FileInfo]$icon, $global) {
-    if(!$target.Exists) {
-        Write-Host -f DarkRed "Creating shortcut for $shortcutName ($(fname $target)) failed: Couldn't find $target"
-        return
-    }
-    if($icon -and !$icon.Exists) {
-        Write-Host -f DarkRed "Creating shortcut for $shortcutName ($(fname $target)) failed: Couldn't find icon $icon"
-        return
-    }
 
-    $scoop_startmenu_folder = shortcut_folder $global
-    $subdirectory = [System.IO.Path]::GetDirectoryName($shortcutName)
-    if ($subdirectory) {
-        $subdirectory = ensure $([System.IO.Path]::Combine($scoop_startmenu_folder, $subdirectory))
+# Creates a start menu shortcut, checking all arguments
+# Returns nothing if successful, or an error message in an error occured
+function startmenu_shortcut([string] $target, [string] $shortcutName, [string] $arguments, [string] $icon, $global) {
+    if(-not (test-path -pathType leaf $target)) {
+        "'$target' doesn't exist"
     }
-
-    $wsShell = New-Object -ComObject WScript.Shell
-    $wsShell = $wsShell.CreateShortcut("$scoop_startmenu_folder\$shortcutName.lnk")
-    $wsShell.TargetPath = $target.FullName
-    $wsShell.WorkingDirectory = $target.DirectoryName
-    if ($arguments) {
-        $wsShell.Arguments = $arguments
+    elseif($icon -and -not (test-path -pathType leaf $icon)) {
+        "Icon file '$icon' doesn't exist"
     }
-    if($icon -and $icon.Exists) {
-        $wsShell.IconLocation = $icon.FullName
+    else {
+        $shortcutFile = join-path (shortcut_folder $global) "$shortcutName.lnk"
+        ensure (split-path -parent $shortcutFile) > $null
+        
+        $wsShell = New-Object -ComObject WScript.Shell
+        $shortcut = $wsShell.CreateShortcut($shortcutFile)
+        $shortcut.TargetPath = $target
+        $shortcut.WorkingDirectory = split-path -parent $target
+        if($arguments) { $shortcut.Arguments = $arguments }
+        if($icon) { $shortcut.IconLocation = $icon }
+        $shortcut.Save()
     }
-    $wsShell.Save()
-    write-host "Creating shortcut for $shortcutName ($(fname $target))"
 }
 
 # Removes the Startmenu shortcut if it exists
